@@ -1,0 +1,128 @@
+SET floorsButtons
+SET column to 1
+SET elevator to 2
+
+
+
+
+
+
+'FUNCTION THAT SELECT THE ELEVATOR.  CONDITIONS: ELEVATOR most not be Moving or It's not moving to the Opposit direction'
+
+DEFINE selectElevator
+
+FOR each elevator 
+    IF elevatorID NOT EQUAL moving or elevatorID NOT EQUAL direction THEN
+        IF two elevator available THEN
+
+            'WE CALCULATE TO SEND THE CLOSEST ELEVATOR by SUBSTRACTING Floor from which it is requested by the Actual Elevator Position'
+            SET elevator[0] TO elevator[0].positon
+            SET elevator[1] TO elevator[1].position
+            IF (floorRequestedFrom - elevatorID[0]) < floorRequestedFrom - elevatorID[1]) THEN
+                   return elevator[0]
+            ELSE
+
+                    return elevator[1]
+            END IF
+       
+
+    END iF
+
+END FOR
+
+END DEFINE
+
+
+
+'THE FUNCTION THAT START MOVIN THE SELECTED ELEVATOR'
+DEFINE sendElevator
+        SET selectedElevator to selectElevator with direction returning elevatorId
+
+        selectedElevator[id].move with floorRequestedFrom
+
+        SET waiting to TRUE
+
+        'THIS SEQUENCE WAIT FOR THE ELEVATOR TO ARRIVE AT THE REQUESTED FLOOR'
+        WHILE waiting THEN
+       '
+        IF selectedElevator[id].position EQUAL floorRequestedFrom THEN
+
+            selectedElevator[id].openDoor
+            'THIS SEQUENCE WAIT 10 SECONDS AND FOR A DESTIANTION FLOOR BEFORE CLOSING IT DOORS
+            FOR x = 1 to 10
+                wait 1 second
+                x = x + 1
+                while x NOT EQUAL 10 THEN
+
+                if floorMovingTo returning floorButtonID NOT EQUAL NULL THEN
+
+                        
+                        'NEW LOOP: WHILE GOING TO THE REQUEST FLOOR , WE WAIT TO SEE IF SOMEONE ON THE ROAD REQUEST FOR AN ELEVATOR'
+                        WHILE queuedRequest EQUAL null THEN
+
+                            selectedElevator[id].move with floorButtonID EQUAL floorRequestedFrom 'CHANGE THE NEW REQUESTED FLOOR SO IT BECOMES A LOOP for the DOOR'
+
+
+                        END IF
+                ELSE IF X EQUAL 9 THEN
+                    'KEEP THE LOOP GOING UNTIL IT REACHED 9 SECOND while Waiting for a destinationFloor'
+                    X = 8
+
+                END IF
+
+
+
+
+
+                END WHILE
+
+            END FOR
+            SET waiting to FALSE
+       
+        END IF
+
+        END WHILE
+
+END DEFINE
+
+
+
+
+
+
+
+'GET THE VALUE OF THE REQUEST DIRECTION and FLOOR FROM which it was Requested'
+DEFINE buttonPressed
+        SET directionButtonID to directionButton
+        SET floorRequestedFrom to floorsButtons
+
+       
+      return direction,floorRequestedFrom
+
+      
+
+
+END DEFINE
+'LOOP until Someone request an elevator'
+DEFINE waitForRequest
+
+SET waiting to TRUE
+WHILE waiting NOT EQUAL false NULL
+
+    if buttonPressed NOT EQUAL NULL
+        'CALL SENDING ELEVATOR'
+        CALL sendElevator with directionButton,floorRequestedFrom
+
+        'END THE LOOP UNTIL IT THERE IS NO MORE REQUEST'
+        SET waiting to false
+    END IF
+        
+ENDWHILE
+
+
+END DEFINE
+
+
+'Wait for an elevator Request'
+SEQUENCE CALL waitForRequest
+
