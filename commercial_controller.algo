@@ -1,0 +1,358 @@
+
+
+
+
+
+
+
+'===== Starting The Elevators Setting them to default: IDLE'
+SEQUENCE engineStartup
+
+    SET column TO 4
+    SET elevatorPerColumn TO 3
+    SET nbrFloor TO 60
+    SET nbrBasement TO 6
+    SET totalFloor TO nbrFloor PLUS nbrBasement
+    SET totalElevator TO elevatorPerColumn COMPUTE column
+
+
+
+    'ADD the elevators available to the column'
+    'ADD 3 Elevator TO EACH column'
+    SET x TO 0
+    
+    FOR EACH column in column
+            INCREMENT X
+            SET y TO 0
+            FOR EACH elevator in elevatorPerColumn
+                INCREMENT y
+                PUSH elevator USING y TO column USING x
+                IF elevator USING y NOT EQUAL maintenance THEN
+            
+                SET elevator USING y TO idle
+            
+                CALL closeDoor()
+
+                END IF
+                
+
+            ENDFOR
+
+
+
+
+    ENDFOR
+    
+    CALL designatedFloors()
+
+
+
+
+END DEFINE
+
+
+
+'DESIGN RESPECTIVE FLOORS TO EACH COLUMN'
+SEQUENCE designatedFloors
+
+
+    SET column1 TO 1 AND FROM -1 TO -6
+    SET column2 TO FROM 1 TO 20
+    SET column3 TO FROM 21 TO 40
+    SET column4 TO FROM 41 TO 60
+
+
+    
+
+END SEQUENCE
+
+
+
+'==== WHEN A BUTTON INPUT=====   '
+SEQUENCE btnPressed
+    CASE mainBtnID
+        UP: SET direction to UP
+        DOWN: SET direction TO DOWN
+        EMEREGENCY: call EMEREGENCY() 'Personal Adjustmenet : IT Stops the elevator and Call Emeergency'
+    ENDCASE
+
+
+    SET floorRequestedFrom TO floorNumber
+
+
+    'Select column to be used'
+    CALL findColumn WITH floorRequestedFrom returning selectedColumn
+
+    'Select The Elevator Available'
+    CALL selectElevator with mainBtnID,floorRequestedFrom,selectedColumn returning elevatorID
+
+    'Add The floor to queue of that elevator and sort it the way that it's in order'
+    CALL elevatorqueue with elevatorID, floorRequestedFrom
+
+    'Make that elevator move'
+    CALL elevator.move with elevatorQueue
+
+    'Bring Back the elevator to Idle Status and back to lobby'
+    CALL reset with elevatorID
+
+END SEQUENCE
+
+
+'==== Function Find THE COLUMN ====='
+SEQUENCE findColumn USING floorRequestedFrom
+    IF floorRequestedFrom EQUAL 1 THEN
+
+        return column1 AND column2
+
+    ELSE IF floorRequestedFrom > 1 AND floorRequestedFrom < 21 THEN
+
+        return column2
+
+    ELSE IF floorRequestedFrom > 20 AND floorRequestedFrom <41 THEN
+
+        return column3
+
+    ELSE IF floorRequestedFrom > 40 THEN
+
+        return column4
+
+    END IF
+
+END SEQUENCE
+
+
+
+
+'====  Function that select available Elevator'
+
+SEQUENCE selectElevator USING mainBtnID,floorRequestedFrom,selectedColumn
+
+SET elevator TO null
+
+
+'We Go through the array of elevator and the closest one'
+
+FOR each elevator in selectedColumn
+
+    IF elevator.status() NOT EQUAL MOVING or elevator.direction() NOT EQUAL mainBtnID THEN
+            
+                STORE elevator IN elevatorId
+                SET nearestElevator TO 0
+                IF elevatorID < 1 THEN
+                    SET difference EQUAL floorRequestedFrom MINUS elevator.position()
+                    IF difference EQUAL 0 THEN
+
+                        return elevatorID
+
+                    ELSE IF difference > nearestElevator AND difference <= ABSTRACT(nearestElevator) THEN
+                        
+                        return elevatorID
+
+                    ELSE IF difference < nearestElevator AND NEGATIF difference <= ABSTRACT(nearestElevator) THEN
+                        
+                        return elevatorID
+
+                
+
+                    END IF
+    END iF
+  
+
+    END IF
+END FOR
+
+END SEQUENCE
+
+
+'Add every new inut to the requested Elevator Queue'
+SEQUENCE elevatorQueue USING elevatorID,floorRequestedFrom
+
+        ADD floorRequestedFrom TO elvQueue
+
+        SORT elvQueue
+
+
+END SEQUENCE
+
+
+
+'====  Function that control the movement of the elvator  ===='
+SEQUENCE elevatorMove with elevatorDestination
+
+    FOR EACH elevatorDestination
+
+
+        ' Change Status of the elevator '
+        SET elevator.status TO MOVING
+        ' Get the actual position of the elevator '
+        SET actPostion TO elevator.position()
+
+        'Condition to decide wheter elevator must go up or down'
+        IF actPostion > elevatorDestination THEN
+
+            REPEAT
+
+                DECREASE elevator.position()
+
+            UNTIL actPostion EQUAL elevatorDestination
+
+        ELSE IF actPostion < elevatorDestination THEN
+            
+            REPEAT floor IN floorlist
+
+                INCREMENT elevator.position()
+
+            UNTIL actPostion EQUAL elevatorDestination
+            
+
+        END IF
+
+
+        POP elevatorDestination 'SINCE WE REACHED THE FIRST DESTINATION IN THE INDEX WE TAKE IT OF'
+        CALL doorOpen()
+
+        'This argumeent get the floor input from user and add to the actual queue'
+        'Make an ongoing loop for that elevator until there is no more request on the way'
+        PUSH waitForDestination() returning destination TO elevatorDestination
+        SORT elevatorDestination 
+        
+    END FOR
+
+    
+
+END SEQUENCE
+
+
+
+'====   Function that waits for user input (Destination) ====''
+SEQUENCE waitForDestination()
+
+        SET waiting TO TRUE
+            WHILE waiting 
+                'IF the persone try to go opposite direction that he requested the elevator for'
+                IF floorNumber NOT EQUAL NULL THEN
+                    IF floorNumber > elevator.position() AND elevator.direction EQUAL DOWN THEN
+
+                        PRINT "THIS ELEVATOR GOING DOWN"
+
+                    ELSE IF floorNumber < elevator.position() AND elevator.direction EQUAL UP THEN
+
+                        PRINT "THIS ELEVATOR GOING UP"
+
+                    ELSE
+
+                        return floorNumber
+
+                    END IF
+
+                END IF
+
+            END WHILE
+
+
+
+END SEQUENCE
+
+
+'===    Function That opens the door    ===='
+SEQUENCE doorOpen()
+    
+    SET elevator.door() TO OPEN
+    CALL doorSensor() 
+    
+    CALL doorClose()
+
+END SEQUENCE
+'RETURN THE WIGHT OF THE ELEVATOR''
+SEQUENCE doorSensor()
+
+    
+    SET elevator.weight TO 0
+    SET seconds TO 0
+    SET waiting TO TRUE
+    WHILE waiting
+
+        INCREMENT seconds
+        if elevator.weight HAS CHANGED THEN
+
+            SET elevator.weight TO NEW elevator WEIGHT
+
+        END IF
+
+
+
+    END WHILE
+
+
+
+
+END SEQUENCE
+
+
+
+
+'==== Function That Close the door with a weight condition'
+SEQUENCE doorClose()
+
+    SET maxWeight TO 110 'KG'
+
+
+    WHILE maxWeight > elevator.wight() 
+
+        PRINT "MAXIMUM WEIGHT HAS REACHED, ELEVATOR WON'T MOVE"
+
+
+
+    END WHILE
+
+    SET elevator.door() TO CLOSE
+
+END SEQUENCE
+
+
+'==== Function that creates the elevator and handles them'
+DEFINE elevator USING elevatorStatus,elevatorDirection,doorStatus,elevatorID
+ SET elevatorID TO elevatorID
+ SET elevator.status TO elevatorStatus
+ SET elevator.direction TO elevatorDirection
+ SET elevator.door TO doorStatus
+ SET elevator.weight TO elevatorWeight
+ 
+
+END DEFINE
+
+
+'===== Function That put the elvevator to rest after it reachs all it destination'
+
+SEQUENCE reset USING elevatorID
+
+    SET elvLobby TO 0
+    FOR EACH elevator IN elevatorList
+
+        IF elevator.positon EQUAL 0 THEN
+
+            INCREMENT elvLobby
+
+        END IF
+
+
+    END FOR
+
+    IF elvLobby EQUAL 0 and elevator.status NOT EQUAL MOVING THEN
+
+            CALL elevatorMove() WITH 0
+
+            SET elevator.status TO idle
+            
+
+    ELSE
+
+             SET elevator.status TO idle
+
+
+    END IF
+
+
+
+
+DEFINE
