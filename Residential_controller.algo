@@ -1,0 +1,237 @@
+
+
+
+
+
+
+
+'===== Starting The Elevators Setting them to default: IDLE'
+SEQUENCE engineStartup
+
+    SET column TO 0
+
+
+
+    FOR EACH elevator in elevatorList
+        PUSH elvator TO column
+        IF elevator NOT EQUAL maintenance THEN
+            
+            SET elevator TO idle
+            CALL closeDoor()
+
+        END IF
+    END FOR
+
+
+
+END DEFINE
+
+
+
+
+'==== WHEN A BUTTON IS PRESSED =====   '
+SEQUENCE btnPressed
+    CASE mainBtnID
+        UP: SET direction to UP
+        DOWN: SET direction TO DOWN
+        EMEREGENCY: call EMEREGENCY()
+    ENDCASE
+    SET floorRequestedFrom TO floorNumber
+
+
+    CALL selectElevator with mainBtnID,floorRequestedFrom returning elevatorID
+    CALL elevatorqueue with elevatorID, floorRequestedFrom
+    CALL elevator.move with elevatorQueue
+    CALL reset with elevatorID
+
+END SEQUENCE
+
+
+
+
+
+
+DEFINE selectElevator WITH mainBtnID,floorRequestedFrom
+
+SET elevator TO null
+
+FOR each elevator in elevatorList
+
+    IF elevator.status() NOT EQUAL MOVING or elevator.direction() NOT EQUAL mainBtnID THEN
+            
+            STORE elevator IN elevatorId
+    ElSE IF elevatorDirection EQUAL btnDirection THEN
+
+            STORE elevator IN elevatorID
+    END iF
+    SET nearestElevator TO 0
+    IF elevatorID < 1 THEN
+        SET difference EQUAL floorRequestedFrom MINUS elevatorID
+        IF difference EQUAL 0 THEN
+
+            return elevatorID
+
+        ELSE IF difference > nearestElevator AND difference <= ABSTRACT(nearestElevator) THEN
+            
+            return elevatorID
+
+        ELSE IF difference < nearestElevator AND NEGATIF difference <= ABSTRACT(nearestElevator) THEN
+            
+            return elevatorID
+
+      
+
+        END IF
+
+
+
+    END IF
+END FOR
+
+END DEFINE
+
+
+
+SEQUENCE elevatorQueue USING elevatorID,floorRequestedFrom
+
+        ADD floorRequestedFrom TO elvQueue
+
+        SORT elvQueue
+
+
+END SEQUENCE
+
+
+SEQUENCE elevatorMove with elevatorDestination
+
+    FOR EACH elevatorDestination
+        SET elevator.status TO MOVING
+        SET actPostion TO elevator.position()
+
+        IF actPostion > elevatorDestination THEN
+
+            REPEAT
+
+                DECREASE elevator.position()
+
+            UNTIL actPostion EQUAL elevatorDestination
+
+        ELSE IF actPostion < elevatorDestination THEN
+            
+            REPEAT floor IN floorlist
+
+                INCREMENT elevator.position()
+
+            UNTIL actPostion EQUAL elevatorDestination
+            
+
+        END IF
+        POP elevatorDestination 'SINCE WE REACHED THE FIRST DESTINATION IN THE INDEX WE TAKE IT OF'
+        CALL doorOpen()
+        PUSH waitForDestination() returning destination TO elevatorDestination
+        SORT elevatorDestination
+    
+    END FOR
+
+    
+
+END SEQUENCE
+
+
+
+
+SEQUENCE waitForDestination()
+        SET waiting TO TRUE
+            WHILE waiting 
+
+                IF floorNumber NOT EQUAL NULL THEN
+                    IF floorNumber > elevator.position() AND elevator.direction EQUAL DOWN THEN
+
+                        PRINT "THIS ELEVATOR GOING DOWN"
+
+                    ELSE IF floorNumber < elevator.position() AND elevator.direction EQUAL UP THEN
+
+                        PRINT "THIS ELEVATOR GOING UP"
+
+                    ELSE
+
+                        return floorNumber
+
+                    END IF
+
+                END IF
+
+            END WHILE
+
+
+
+END SEQUENCE
+
+SEQUENCE doorOpen()
+    SET elevator.door() TO OPEN
+    WAIT 10 SECOND
+    doorClose()
+
+END SEQUENCE
+
+
+SEQUENCE doorClose()
+
+    SET maxWeight TO 110 'KG'
+
+
+    WHILE maxWeight > elevator.wight() 
+
+        PRINT "MAXIMUM WEIGHT HAS REACHED, ELEVATOR WON'T MOVE"
+
+
+
+    END WHILE
+
+    SET elevator.door() TO CLOSE
+
+END SEQUENCE
+
+
+
+DEFINE elevator USING elevatorStatus,elevatorDirection,doorStatus
+
+ SET elevator.status TO elevatorStatus
+ SET elevator.direction TO elevatorDirection
+ SET elevator.door TO doorStatus
+ 
+
+END DEFINE
+
+
+SEQUENCE reset USING elevatorID
+    SET elvLobby TO 0
+    FOR EACH elevator IN elevatorList
+
+        IF elevator.positon EQUAL 0 THEN
+
+            INCREMENT elvLobby
+
+        END IF
+
+
+    END FOR
+
+    IF elvLobby EQUAL 0 and elevator.status NOT EQUAL MOVING THEN
+
+            CALL elevatorMove() WITH 0
+
+            SET elevator.status TO idle
+            
+
+    ELSE
+
+             SET elevator.status TO idle
+
+
+    END IF
+
+
+
+
+DEFINE
